@@ -1,16 +1,13 @@
 import math
 import os
 import random
-import string
 import hashlib
 import base64
+import string
 
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import *
 from Crypto.Util.number import isPrime
-
-from tls import Agent
-from tls import MITM
 
 # region Task 1
 # agreed public parameters
@@ -32,15 +29,15 @@ B = pow(g, b, p)  # modular exponentiation
 
 # Then each compute the secret (symmetric)
 s = pow(B, a, p)  # Alice
-print(s)
 s = pow(A, b, p)  # Bob
-print(s)
 # endregion
 
 # region Task 2
 hash = hashlib.sha1(str(s).encode())
-key = hash.digest()[:-4]  # size 16
+key = hash.digest()[:-4]  # size 16 bytes
 print(key)
+
+
 # endregion
 
 # region Task 3
@@ -65,6 +62,7 @@ def decrypt(key: bytes, iv: bytes, encrypted_message: str) -> str:
 
     return plaintext
 
+
 # test script bulk_cipher.py
 BLOCK_SIZE = 16
 
@@ -72,10 +70,70 @@ key = os.urandom(BLOCK_SIZE)
 iv = os.urandom(BLOCK_SIZE)
 msg = ''.join(random.choice(string.ascii_lowercase) for i in range(1024))
 assert decrypt(key, iv, encrypt(key, iv, msg)) == msg
+
+
 # endregion
 
 # region Task 4
-# implemented in Agent
+class Agent:
+    def __init__(self, message=()):
+        self.msg = message
+        self.p = 0
+        self.g = 0
+        self.a = 0
+        self.A = 0
+        self.B = 0
+        self.s = 0
+        self.key = 0
+        self.iv = 0
+
+    def send_public_data(self):
+        if self.p == 0 or self.g == 0:
+            p = random.getrandbits(2048)
+            g = random.getrandbits(2048)
+
+            while not (isPrime(p)):
+                p = random.getrandbits(2048)
+
+            while not (isPrime(p)):
+                g = random.getrandbits(2048)
+
+            self.p = p
+            self.g = g
+        return self.p, self.g
+
+    def receive_public_data(self, p, g):
+        self.p = p
+        self.g = g
+
+    def send_public_key(self):
+        self.a = random.randint(2, self.p - 1)
+        self.A = pow(g, a, p)
+        return self.A
+
+    def receive_public_key(self, B):
+        self.B = B
+
+    def send_message(self):
+        iv = os.urandom(16)
+        self.iv = iv
+        self.s = pow(B, a, p)
+        h = hashlib.sha1(str(self.s).encode())
+        self.key = h.digest()[:-4]
+        ct = encrypt(self.key, self.iv, self.msg)
+        ct = bytes(ct, 'utf-8')
+        ct = iv + ct
+        return ct
+
+    def receive_message(self, ct):
+        self.s = pow(B, a, p)
+        h = hashlib.sha1(str(self.s).encode())
+        self.key = h.digest()[:-4]
+        iv = ct[0:16]
+        ct = str(ct[16:], 'utf-8')
+        msg = decrypt(self.key, iv, ct)
+        self.msg = msg
+
 
 # test script tls_101.py
 alice = Agent("I'M 5UppER Kewl h4zKEr")
@@ -97,10 +155,59 @@ alice.receive_public_key(bob.send_public_key())
 bob.receive_message(alice.send_message())
 # Bob has it now
 assert alice.msg == bob.msg
+
+
 # endregion
 
 # region Task 5
-# implemented in MITM
+class MITM:
+    def __init__(self):
+        self.p = 0
+        self.g = 0
+        self.a = 0
+        self.A = 0
+        self.B = 0
+        self.msg = ""
+        self.s = 0
+        self.key = 0
+
+    def send_public_data(self):
+        if self.p == 0 or self.g == 0:
+            p = random.getrandbits(2048)
+            g = random.getrandbits(2048)
+
+            while not (isPrime(p)):
+                p = random.getrandbits(2048)
+
+            while not (isPrime(p)):
+                g = random.getrandbits(2048)
+
+            self.p = p
+            self.g = g
+        return self.p, self.g
+
+    def receive_public_data(self, p, g):
+        self.p = p
+        self.g = g
+
+    def send_public_key(self):
+        self.a = random.randint(2, self.p - 1)
+        self.A = pow(g, a, p)
+        return self.A
+
+    def receive_public_key(self, B):
+        self.B = B
+
+    def intercept_message(self, input):
+        self.s = pow(B, a, p)
+        h = hashlib.sha1(str(self.s).encode())
+        self.key = h.digest()[:-4]
+        iv = input[0:16]
+        ct = str(input[16:], 'utf-8')
+        msg = decrypt(self.key, iv, ct)
+        self.msg = msg
+        return input
+
 
 # test script itls_101.py
 alice = Agent("I'M 5UppER Kewl h4zKEr")
@@ -184,12 +291,12 @@ def decrypt(m, priv_key, n):
 
 
 # RSA key generation
-n = p*q    # modulus
+n = p * q  # modulus
 if isPrime(p) and isPrime(q):
     fi_n = (p - 1) * (q - 1)  # kept secret
 
     if math.gcd(e, fi_n) == 1:
-        d = invmod(e, fi_n)   # secret private key exponent
+        d = invmod(e, fi_n)  # secret private key exponent
 
 public = (n, e)
 private = (n, d)
