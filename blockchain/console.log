@@ -1,0 +1,10 @@
+BigInteger.valueOf(3000)
+BigInteger {0: 3000, t: 1, s: 0}
+new BigInteger("424242424242424244242424244242424242424")
+BigInteger {0: 213623032, 1: 226227782, 2: 99391191, 3: 31904303, 4: 81706, t: 5, s: 0}
+new BigInteger("SoLongAndThanksForAllTheFish")
+BigInteger {0: 9520393, 1: 76419088, 2: 233137143, 3: 1583, t: 4, s: 0}
+BigInteger.valueOf(1).mod(BigInteger.valueOf(3000))
+				.multiply(new BigInteger("424242424242424244242424244242424242424"))
+				.add(new BigInteger("SoLongAndThanksForAllTheFish"));
+BigInteger {0: 223143425, 1: 34211414, 2: 64092879, 3: 31905887, 4: 81706, s: 0, t: 5}
